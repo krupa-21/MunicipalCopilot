@@ -1,0 +1,700 @@
+/* ==========================================================================
+   AHMEDABAD MUNICIPAL CORPORATION (AMC) - MUNICIPAL KNOWLEDGE COPILOT
+   Architectural Studio & Minimalist Government Knowledge System Layout
+   Palette:
+     - Cosmic Latte / Ivory Paper Backgrounds (#FBF9F5 / #F5F1E8 / #FFFFFF)
+     - Richer Deep Petrol Navigation (#0C232C / #112E38 / #183D4A)
+     - Charcoal Ink Typography (#111615 / #222826 / #58625F)
+     - Heritage Green Accents (#1B4931 / #EBF3EE)
+     - Terracotta Bronze Highlights (#B84E32 / #C05638 / #FDF1ED)
+   Design Rules:
+     - No cards, no gradients, no blurry box-shadows. Flat architectural planes.
+     ========================================================================== */
+
+:root {
+  /* Cosmic Latte & Ivory Paper */
+  --bg-page: #FBF9F5;
+  --bg-surface: #FFFFFF;
+  --bg-subtle: #F4EFE6;
+  --bg-inset: #EDE7DC;
+  
+  /* Richer Deep Petrol Navigation */
+  --petrol-deep: #0C232C;
+  --petrol-mid: #112E38;
+  --petrol-light: #183D4A;
+  --petrol-text: #E5EFF2;
+  --petrol-muted: #8EAAB3;
+  
+  /* Charcoal Ink Typography */
+  --text-main: #222826;
+  --text-heading: #111615;
+  --text-muted: #58625F;
+  --text-dim: #7B8582;
+  
+  /* Architectural Ruling Lines (1px flat) */
+  --border-color: #DDD8CE;
+  --border-subtle: #E8E3D8;
+  --border-strong: #B8B0A0;
+  
+  /* Heritage Green Accents */
+  --heritage-green: #1B4931;
+  --heritage-green-hover: #143825;
+  --heritage-green-tint: #EBF3EE;
+  --heritage-green-border: #9EC4AE;
+  
+  /* Terracotta Bronze Highlights */
+  --terracotta: #B84E32;
+  --terracotta-hover: #9E3F26;
+  --terracotta-tint: #FDF1ED;
+  --terracotta-border: #E8A896;
+  
+  /* Neutral Government Semantic States */
+  --status-success: #1B4931;
+  --status-warning: #945800;
+  --status-danger: #A32828;
+  --status-danger-tint: #FDF2F2;
+  --status-danger-border: #E8B4B4;
+  
+  /* Geometry & Typography */
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+  --radius-sharp: 2px;
+  --radius-sm: 3px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--bg-page);
+  color: var(--text-main);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-page);
+}
+
+/* Crisp Editorial Scrollbars */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-subtle);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--petrol-mid);
+}
+
+/* ==========================================================================
+   GOVERNMENT MASTHEAD / NAVIGATION (Deep Petrol & Terracotta Accent)
+   ========================================================================== */
+
+.app-header {
+  background: var(--petrol-deep);
+  border-bottom: 2px solid var(--terracotta);
+  padding: 10px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  box-shadow: none;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.amc-logo-badge {
+  background: var(--heritage-green);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sharp);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 1.5px;
+  color: #FFFFFF;
+  box-shadow: none;
+}
+
+.header-titles h1 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  letter-spacing: 0.02em;
+}
+
+.header-titles p {
+  font-size: 11.5px;
+  color: var(--petrol-muted);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sharp);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.status-badge.online {
+  background: rgba(27, 73, 49, 0.4);
+  color: #B2D8C3;
+  border: 1px solid var(--heritage-green-border);
+}
+.status-badge.offline {
+  background: rgba(163, 40, 40, 0.4);
+  color: #F0B2B2;
+  border: 1px solid var(--status-danger-border);
+}
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.role-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--petrol-mid);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 4px 10px;
+  border-radius: var(--radius-sharp);
+  color: var(--petrol-text);
+  font-size: 12px;
+}
+.role-select {
+  background: transparent;
+  border: none;
+  color: #FFFFFF;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  font-size: 12px;
+}
+.role-select option {
+  background: var(--petrol-deep);
+  color: #FFFFFF;
+}
+
+/* Secondary Navigation Bar */
+.nav-bar {
+  background: var(--petrol-mid);
+  border-bottom: 1px solid var(--border-color);
+  padding: 0 28px;
+  display: flex;
+  gap: 1px;
+  overflow-x: auto;
+}
+
+.nav-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--petrol-muted);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  white-space: nowrap;
+}
+.nav-tab:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.05);
+}
+.nav-tab.active {
+  color: #FFFFFF;
+  background: var(--petrol-light);
+  border-bottom-color: var(--terracotta);
+}
+
+/* ==========================================================================
+   MAIN CONTENT & ARCHITECTURAL PANELS (No Cards, No Shadows)
+   ========================================================================== */
+
+.app-content {
+  flex: 1;
+  padding: 24px 28px;
+  max-width: 1440px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Architectural Panel (Flat, Ivory Paper / White Plane with 1px Ruling) */
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sharp);
+  padding: 20px 24px;
+  box-shadow: none;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.card-title {
+  font-size: 14.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-heading);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: uppercase;
+}
+
+/* ==========================================================================
+   BUTTONS & FORM CONTROLS (Flat, Precision Edges)
+   ========================================================================== */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 6px 14px;
+  border-radius: var(--radius-sharp);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  box-shadow: none;
+}
+
+.btn-primary {
+  background: var(--terracotta);
+  color: #FFFFFF;
+  border-color: var(--terracotta);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--terracotta-hover);
+  border-color: var(--terracotta-hover);
+}
+
+.btn-secondary {
+  background: var(--bg-subtle);
+  color: var(--text-main);
+  border-color: var(--border-strong);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--bg-inset);
+  border-color: var(--text-muted);
+}
+
+.btn-danger {
+  background: var(--status-danger-tint);
+  color: var(--status-danger);
+  border-color: var(--status-danger-border);
+}
+.btn-danger:hover:not(:disabled) {
+  background: #FCE6E6;
+  border-color: var(--status-danger);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.input, .select, .textarea {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sharp);
+  padding: 7px 11px;
+  color: var(--text-main);
+  font-size: 13px;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.1s ease;
+  box-shadow: none;
+}
+.input:focus, .select:focus, .textarea:focus {
+  border-color: var(--terracotta);
+  background: #FFFFFF;
+}
+
+/* ==========================================================================
+   COPILOT CHAT (Architectural Split Layout)
+   ========================================================================== */
+
+.chat-container {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 20px;
+  height: calc(100vh - 175px);
+  min-height: 540px;
+}
+@media (max-width: 960px) {
+  .chat-container {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+}
+
+.chat-main {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sharp);
+  overflow: hidden;
+  box-shadow: none;
+}
+
+.chat-filter-bar {
+  display: flex;
+  gap: 12px;
+  padding: 9px 16px;
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border-color);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--bg-page);
+}
+
+.chat-message {
+  display: flex;
+  gap: 10px;
+  max-width: 85%;
+}
+.chat-message.user {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+.chat-message.assistant {
+  align-self: flex-start;
+  max-width: 92%;
+}
+
+.message-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sharp);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.chat-message.user .message-avatar {
+  background: var(--terracotta);
+  color: #FFFFFF;
+}
+.chat-message.assistant .message-avatar {
+  background: var(--heritage-green);
+  color: #FFFFFF;
+}
+
+.message-bubble {
+  padding: 12px 16px;
+  border-radius: var(--radius-sharp);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+.chat-message.user .message-bubble {
+  background: var(--petrol-deep);
+  color: #FFFFFF;
+  border: 1px solid var(--petrol-mid);
+}
+.chat-message.assistant .message-bubble {
+  background: var(--bg-surface);
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
+  box-shadow: none;
+}
+
+/* Citations & Sources (Heritage Green Minimalist Theme) */
+.citation-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--heritage-green-tint);
+  color: var(--heritage-green);
+  border: 1px solid var(--heritage-green-border);
+  padding: 0 6px;
+  border-radius: var(--radius-sharp);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  margin: 0 2px;
+  vertical-align: baseline;
+  transition: all 0.1s ease;
+}
+.citation-pill:hover {
+  background: #DCEDE2;
+  border-color: var(--heritage-green);
+}
+
+.sources-box {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.sources-title {
+  font-size: 10.5px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin-right: 4px;
+}
+
+.source-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  padding: 3px 8px;
+  border-radius: var(--radius-sharp);
+  font-size: 11.5px;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+.source-chip:hover {
+  border-color: var(--heritage-green);
+  background: var(--bg-surface);
+}
+
+.chat-input-area {
+  padding: 14px 18px;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border-color);
+}
+.chat-input-wrapper {
+  display: flex;
+  gap: 10px;
+}
+
+.chat-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.prompt-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.prompt-chip {
+  text-align: left;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  padding: 9px 12px;
+  border-radius: var(--radius-sharp);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  line-height: 1.4;
+}
+.prompt-chip:hover {
+  border-color: var(--heritage-green);
+  color: var(--text-heading);
+  background: var(--bg-subtle);
+}
+
+/* ==========================================================================
+   TABLES (Precision Municipal Ledger Style)
+   ========================================================================== */
+
+.table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface);
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  text-align: left;
+}
+.table th {
+  background: var(--bg-subtle);
+  padding: 10px 14px;
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border-strong);
+}
+.table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-main);
+}
+.table tr:hover td {
+  background: #FAF7F0;
+}
+
+/* ==========================================================================
+   BADGES (Flat, Thin Border, Architectural Typography)
+   ========================================================================== */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: var(--radius-sharp);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.badge-teal {
+  background: var(--heritage-green-tint);
+  color: var(--heritage-green);
+  border: 1px solid var(--heritage-green-border);
+}
+.badge-blue {
+  background: #E8EFF2;
+  color: var(--petrol-mid);
+  border: 1px solid #B0C4CC;
+}
+.badge-amber {
+  background: var(--terracotta-tint);
+  color: var(--terracotta);
+  border: 1px solid var(--terracotta-border);
+}
+
+/* ==========================================================================
+   POLICY DIFFERENCE / AMENDMENT ANALYSIS GRID
+   ========================================================================== */
+
+.diff-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 16px;
+}
+.diff-item {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sharp);
+  padding: 14px 16px;
+}
+.diff-item.modified {
+  border-left: 3px solid var(--terracotta);
+}
+.diff-item.added {
+  border-left: 3px solid var(--heritage-green);
+}
+.diff-item.removed {
+  border-left: 3px solid var(--status-danger);
+}
+
+/* ==========================================================================
+   MODAL PREVIEW VIEWER (Architectural Lightbox)
+   ========================================================================== */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(12, 35, 44, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 24px;
+}
+.modal-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sharp);
+  width: 100%;
+  max-width: 950px;
+  height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: none;
+}
+.modal-header {
+  padding: 12px 20px;
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-body {
+  flex: 1;
+  background: #FFFFFF;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.preview-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #FFFFFF;
+}
