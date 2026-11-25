@@ -1,0 +1,38 @@
+AHMEDABAD MUNICIPAL CORPORATION (AMC)
+OFFICE OF THE MUNICIPAL COMMISSIONER
+CIRCULAR NO.: AMC/GRV/2026/014
+DATE: 15-03-2026
+DEPARTMENT: Citizen Grievance Redressal & Public Works
+DOCUMENT TYPE: Operational Circular
+
+SUBJECT: Revised Service Level Agreements (SLAs), Escalation Matrix, Closure Verification, and Record Retention for Citizen Grievances
+
+1. PURPOSE AND SCOPE
+This circular establishes updated response timelines, escalation procedures, officer responsibilities, and record retention rules for all citizen complaints registered through the AMC Seva First Portal, mobile application, and ward helpdesks.
+
+2. COMPLAINT RESPONSE AND RESOLUTION TIMELINES (SLAs)
+- Initial Acknowledgment: Every registered citizen complaint must receive an automated or desk-assisted acknowledgment within 2 hours of submission.
+- Initial Field Inspection / First Action: The assigned Junior Engineer or Ward Inspector must initiate field verification within 24 hours for urgent civic issues (water supply disruption, open manholes, fallen trees, sewerage overflow) and within 48 hours for standard complaints (streetlight repair, road patching, solid waste collection).
+- Final Resolution Target:
+  * Priority A (Emergency / Public Safety): 24 hours
+  * Priority B (Essential Civic Services): 72 hours (3 working days)
+  * Priority C (Routine Maintenance & Requests): 7 working days
+
+3. ESCALATION DEADLINES
+- Level 1 to Level 2 (Ward Inspector to Assistant Municipal Commissioner / Zonal Officer): Automatic escalation if no initial action is logged within 48 hours of complaint registration, or if Priority A/B resolution exceeds the SLA by 12 hours.
+- Level 2 to Level 3 (Zonal Officer to Deputy Municipal Commissioner): Escalated if unresolved after 5 working days from registration.
+- Non-compliance without documented justification (such as pending third-party utility clearance or severe weather) may result in a show-cause notice and SLA penalty recording in the monthly departmental review.
+
+4. VERIFICATION AND CLOSURE RESPONSIBILITIES
+- No complaint may be marked "Closed" without geo-tagged photographic proof of completed work or a signed field inspection note.
+- The Desk Assistant or Ward Supervisor must conduct a citizen callback or digital confirmation check within 24 hours of provisional closure.
+- Only the Department Officer (or Zonal Officer for escalated cases) holds final authority to approve permanent closure. If the citizen reports the issue unresolved, the ticket must be reopened immediately under Priority B.
+
+5. RECORD RETENTION AND DATA PROTECTION RULES
+- All grievance records, uploaded citizen attachments, field inspection logs, and audit trails must be retained in the AMC central repository for a minimum of 5 years from the date of final closure.
+- Citizen personal information (phone numbers, residential addresses, identity numbers) must be masked in public or inter-departmental reports and accessed strictly on a role-based need-to-know basis.
+- Unauthorized export, deletion, or sharing of citizen grievance data outside approved AMC systems is strictly prohibited.
+
+Issued by:
+Office of the Municipal Commissioner
+Ahmedabad Municipal Corporation (AMC)
