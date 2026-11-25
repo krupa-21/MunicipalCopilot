@@ -1,7 +1,71 @@
 ﻿from io import BytesIO
+import os
+import shutil
 
 import fitz
+import pytesseract
 from docx import Document as DocxDocument
+from PIL import Image
+
+
+def _configure_tesseract():
+    """Locate tesseract.exe and its tessdata if not already on PATH."""
+    if shutil.which("tesseract"):
+        return
+
+    local_app_data = os.environ.get("LOCALAPPDATA", "")
+    conda_prefix = os.path.join(local_app_data, "Programs", "tesseract_env")
+    conda_tesseract = os.path.join(conda_prefix, "Library", "bin", "tesseract.exe")
+    conda_tessdata = os.path.join(conda_prefix, "share", "tessdata")
+
+    if os.path.isfile(conda_tesseract):
+        pytesseract.pytesseract.tesseract_cmd = conda_tesseract
+        if os.path.isdir(conda_tessdata):
+            os.environ.setdefault("TESSDATA_PREFIX", conda_tessdata)
+        return
+
+    candidates = [
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+        r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+        os.path.join(local_app_data, "Programs", "Tesseract-OCR", "tesseract.exe"),
+    ]
+    for path in candidates:
+        if path and os.path.isfile(path):
+            pytesseract.pytesseract.tesseract_cmd = path
+            return
+
+
+def _ocr_image_bytes(image_bytes: bytes) -> str:
+    """Run Tesseract OCR on raw image bytes and return extracted text."""
+    _configure_tesseract()
+    with Image.open(BytesIO(image_bytes)) as img:
+        return pytesseract.image_to_string(img).strip()
+
+
+def _extract_pdf_page_ocr(document, page, has_text_layer: bool) -> str:
+    """Extract OCR text from a scanned PDF page or its embedded images."""
+    if not has_text_layer:
+        pixmap = page.get_pixmap(dpi=200)
+        return _ocr_image_bytes(pixmap.tobytes("png"))
+
+    ocr_parts = []
+    seen_xrefs = set()
+
+    for img_info in page.get_images(full=True):
+        xref = img_info[0]
+        if xref in seen_xrefs:
+            continue
+        seen_xrefs.add(xref)
+
+        extracted = document.extract_image(xref)
+        if not extracted or not extracted.get("image"):
+            continue
+
+        text = _ocr_image_bytes(extracted["image"])
+        if text:
+            ocr_parts.append(text)
+
+    return "\n\n".join(ocr_parts)
 
 
 def extract_document_text(contents: bytes, extension: str):
@@ -11,15 +75,19 @@ def extract_document_text(contents: bytes, extension: str):
         with fitz.open(stream=contents, filetype="pdf") as document:
             for page_number, page in enumerate(document, start=1):
                 page_text = page.get_text("text")
+                has_text_layer = len(page_text.strip()) >= 30
 
-                if len(page_text.strip()) < 30:
-                    try:
-                        textpage = page.get_textpage_ocr(flags=0, full=True)
-                        ocr_text = page.get_text("text", textpage=textpage)
-                        if ocr_text.strip():
+                try:
+                    ocr_text = _extract_pdf_page_ocr(
+                        document, page, has_text_layer
+                    )
+                    if ocr_text:
+                        if has_text_layer:
+                            page_text = f"{page_text.rstrip()}\n\n{ocr_text}"
+                        else:
                             page_text = ocr_text
-                    except Exception as ocr_err:
-                        print(f"OCR fallback note for page {page_number}: {ocr_err}")
+                except Exception as ocr_err:
+                    print(f"OCR fallback note for page {page_number}: {ocr_err}")
 
                 extracted_pages.append({
                     "page": page_number,
