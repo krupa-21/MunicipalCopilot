@@ -15,15 +15,15 @@ print("Embedding model loaded successfully!")
 qa_llm = ChatOllama(
     model=OLLAMA_MODEL_NAME,
     temperature=0.1,
-    num_predict=120,
-    num_ctx=2048,
+    num_predict=1024,
+    num_ctx=4096,
     keep_alive="30m"
 )
 
 summary_llm = ChatOllama(
     model=OLLAMA_MODEL_NAME,
     temperature=0.1,
-    num_predict=700,
+    num_predict=1024,
     num_ctx=4096,
     keep_alive="30m"
 )
@@ -31,7 +31,7 @@ summary_llm = ChatOllama(
 comparison_llm = ChatOllama(
     model=OLLAMA_MODEL_NAME,
     temperature=0.1,
-    num_predict=650,
+    num_predict=1500,
     num_ctx=4096,
     keep_alive="30m"
 )
