@@ -19,7 +19,8 @@ import {
   RefreshCw,
   FileCheck,
   ChevronRight,
-  Shield
+  Shield,
+  Download
 } from 'lucide-react';
 
 const API_BASE = 'http://localhost:8000';
@@ -100,6 +101,7 @@ export default function App() {
   const [summarizeDoc, setSummarizeDoc] = useState('');
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [summaryResult, setSummaryResult] = useState(null);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   // Audit Logs State
   const [auditLogs, setAuditLogs] = useState([]);
@@ -367,6 +369,53 @@ export default function App() {
       alert(`Summarization error: ${err.message}`);
     } finally {
       setIsSummarizing(false);
+    }
+  };
+
+  // Handle Summary PDF Download
+  const handleDownloadSummaryPdf = async () => {
+    if (!summaryResult?.summary || isExportingPdf) return;
+
+    const docObj = documents.find((d) => d.filename === summaryResult.filename);
+    const originalName = docObj?.original_filename || summaryResult.filename;
+
+    setIsExportingPdf(true);
+    try {
+      const res = await fetch(`${API_BASE}/summarize/export-pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: summaryResult.filename,
+          original_filename: originalName,
+          total_pages: summaryResult.total_pages,
+          summary: summaryResult.summary
+        })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'PDF export failed');
+      }
+
+      const disposition = res.headers.get('Content-Disposition') || '';
+      const filenameMatch = disposition.match(/filename="?([^"]+)"?/i);
+      const baseStem = originalName.replace(/\.[^/.]+$/, '').replace(/[<>:"/\\|?*\s]+/g, '_') || 'document';
+      const fallbackRand = Math.floor(100000 + Math.random() * 900000);
+      const downloadFilename = filenameMatch ? filenameMatch[1] : `${baseStem}_summary_${fallbackRand}.pdf`;
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = downloadFilename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(`PDF download error: ${err.message}`);
+    } finally {
+      setIsExportingPdf(false);
     }
   };
 
@@ -1261,16 +1310,40 @@ export default function App() {
               </div>
             </div>
 
-            {summaryResult && (
+            {summaryResult && (() => {
+              const summaryDocObj = documents.find((d) => d.filename === summaryResult.filename);
+              const summaryDisplayName = summaryDocObj?.original_filename || summaryResult.filename;
+
+              return (
               <div className="card">
                 <div className="card-header">
                   <div className="card-title">
                     <FileCheck size={16} color="var(--heritage-green)" />
-                    Structured Municipal Summary: {summaryResult.filename}
+                    Structured Municipal Summary: {summaryDisplayName}
                   </div>
-                  <span className="badge badge-teal">
-                    {summaryResult.total_pages} Pages Processed
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span className="badge badge-teal">
+                      {summaryResult.total_pages} Pages Processed
+                    </span>
+                    <button
+                      className="btn btn-primary"
+                      onClick={handleDownloadSummaryPdf}
+                      disabled={isExportingPdf}
+                      style={{ padding: '5px 12px', fontSize: '12px' }}
+                    >
+                      {isExportingPdf ? (
+                        <>
+                          <RefreshCw size={13} className="animate-spin" />
+                          Generating PDF...
+                        </>
+                      ) : (
+                        <>
+                          <Download size={13} />
+                          Download Summary PDF
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
                 <div
                   style={{
@@ -1287,7 +1360,8 @@ export default function App() {
                   {summaryResult.summary}
                 </div>
               </div>
-            )}
+              );
+            })()}
           </div>
         )}
 
