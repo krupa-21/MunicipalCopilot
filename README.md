@@ -1,5 +1,5 @@
 # Ahmedabad Municipal Corporation (AMC) — Municipal Operations & Knowledge Copilot
-> **SSIP 2.0 (Smart Solution & Innovation Platform) • SEVA FIRST**
+> **SSIP 2.0 (Smart Solution & Innovation Platform) • SEVA FIRST INNOVATION CHALLENGE**
 
 An AI-powered municipal knowledge retrieval, policy comparison, and document management system built for municipal administrative efficiency, citizen grievance resolution, and regulatory compliance.
 
