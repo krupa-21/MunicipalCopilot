@@ -1035,6 +1035,231 @@ def compare_fact_lists(
     return exact_compare_fact_lists(previous_facts, revised_facts)
 
 
+EXECUTIVE_DIMENSIONS = [
+    ("purpose", "Purpose"),
+    ("primary_focus", "Primary Focus"),
+    ("response_times", "Response Times"),
+    ("approach", "Approach"),
+    ("stakes", "Stakes"),
+    ("flexibility", "Flexibility"),
+]
+
+
+def _truncate_text(text: str, max_chars: int = 2500) -> str:
+    """Truncate long document text cleanly to fit local LLM context limits."""
+    text = str(text or "").strip()
+    if len(text) <= max_chars:
+        return text
+    return text[:max_chars].rstrip() + "\n...[truncated]"
+
+
+def _build_fallback_executive_comparison(
+    previous_facts: dict,
+    revised_facts: dict
+) -> dict:
+    """Build a conservative fallback structured comparison when AI output fails."""
+    prev_purpose = (previous_facts.get("document_purpose") or "").strip() or "Not stated"
+    rev_purpose = (revised_facts.get("document_purpose") or "").strip() or "Not stated"
+    prev_times = "; ".join(previous_facts.get("response_times") or []) or "Not stated"
+    rev_times = "; ".join(revised_facts.get("response_times") or []) or "Not stated"
+
+    fallback_rows = {
+        "purpose": (prev_purpose, rev_purpose),
+        "primary_focus": (
+            "; ".join((previous_facts.get("priority_categories") or [])[:3]) or "Not stated",
+            "; ".join((revised_facts.get("priority_categories") or [])[:3]) or "Not stated",
+        ),
+        "response_times": (prev_times, rev_times),
+        "approach": (
+            "; ".join((previous_facts.get("responsibilities") or [])[:2]) or "Not stated",
+            "; ".join((revised_facts.get("responsibilities") or [])[:2]) or "Not stated",
+        ),
+        "stakes": (
+            "; ".join((previous_facts.get("escalation_rules") or [])[:2]) or "Not stated",
+            "; ".join((revised_facts.get("escalation_rules") or [])[:2]) or "Not stated",
+        ),
+        "flexibility": ("Not stated", "Not stated"),
+    }
+
+    dimensions = []
+    for key, label in EXECUTIVE_DIMENSIONS:
+        doc_a, doc_b = fallback_rows[key]
+        if doc_a == "Not stated" and doc_b == "Not stated":
+            status = "not_stated"
+            diff = "Not stated in either document."
+        elif normalize_fact(doc_a) == normalize_fact(doc_b):
+            status = "unchanged"
+            diff = "No material difference identified."
+        else:
+            status = "changed"
+            diff = "Document A and Document B specify different details."
+
+        dimensions.append({
+            "key": key,
+            "label": label,
+            "document_a": doc_a,
+            "document_b": doc_b,
+            "difference": diff,
+            "status": status,
+        })
+
+    return {
+        "dimensions": dimensions,
+        "short_summary": "Documents differ in operational focus, response targets, and governance details.",
+        "fallback": True,
+    }
+
+
+def generate_executive_comparison(
+    previous_text: str,
+    revised_text: str,
+    previous_facts: dict,
+    revised_facts: dict,
+    llm
+) -> dict:
+    """
+    Generate a clear side-by-side comparison across Purpose, Primary Focus,
+    Response Times, Approach, Stakes, Flexibility, and a 10-15 word summary.
+    """
+    compact_prev_facts = {
+        k: (v[:6] if isinstance(v, list) else v)
+        for k, v in (previous_facts or {}).items()
+    }
+    compact_rev_facts = {
+        k: (v[:6] if isinstance(v, list) else v)
+        for k, v in (revised_facts or {}).items()
+    }
+
+    prompt = f"""
+You are comparing two municipal policy documents: Document A (base/previous) and Document B (revised/compared).
+Produce a clear, easy-to-understand side-by-side comparison showing what Document A says, what Document B says, and the exact difference between them.
+
+DOCUMENT A EXCERPT:
+{_truncate_text(previous_text, 2200)}
+
+DOCUMENT A EXTRACTED FACTS:
+{json.dumps(compact_prev_facts, ensure_ascii=False)}
+
+DOCUMENT B EXCERPT:
+{_truncate_text(revised_text, 2200)}
+
+DOCUMENT B EXTRACTED FACTS:
+{json.dumps(compact_rev_facts, ensure_ascii=False)}
+
+Return ONLY valid JSON matching this exact structure:
+{{
+  "dimensions": {{
+    "purpose": {{
+      "document_a": "What Document A aims to do (1 concise sentence)",
+      "document_b": "What Document B aims to do (1 concise sentence)",
+      "difference": "Exact difference between A and B (1 concise sentence)",
+      "status": "changed"
+    }},
+    "primary_focus": {{
+      "document_a": "Main operational focus of Document A",
+      "document_b": "Main operational focus of Document B",
+      "difference": "Exact focus shift between A and B",
+      "status": "changed"
+    }},
+    "response_times": {{
+      "document_a": "Exact SLAs/deadlines/timelines in A, or 'Not stated'",
+      "document_b": "Exact SLAs/deadlines/timelines in B, or 'Not stated'",
+      "difference": "Exact timeline difference preserving numbers and units",
+      "status": "changed"
+    }},
+    "approach": {{
+      "document_a": "Methodology/execution approach if stated in A, else 'Not stated'",
+      "document_b": "Methodology/execution approach if stated in B, else 'Not stated'",
+      "difference": "How the approach differs, or 'Not stated in either document'",
+      "status": "not_stated"
+    }},
+    "stakes": {{
+      "document_a": "Consequences, penalties, escalation or risks in A, or 'Not stated'",
+      "document_b": "Consequences, penalties, escalation or risks in B, or 'Not stated'",
+      "difference": "How stakes or accountability differ between A and B",
+      "status": "changed"
+    }},
+    "flexibility": {{
+      "document_a": "Exceptions, discretion, or rigidity in A, or 'Not stated'",
+      "document_b": "Exceptions, discretion, or rigidity in B, or 'Not stated'",
+      "difference": "How flexibility/strictness differs between A and B",
+      "status": "changed"
+    }}
+  }},
+  "short_summary": "Exactly 10 to 15 words summarizing the core difference between Document A and Document B."
+}}
+
+STRICT RULES:
+1. Ground every claim strictly in the provided text and extracted facts. Never invent facts.
+2. Preserve exact numbers and time units (e.g. working hours vs working days).
+3. For Approach (and any other dimension not explicitly covered), write "Not stated" if not stated in that document.
+4. "status" MUST be one of: "changed", "unchanged", or "not_stated".
+5. "short_summary" MUST be 10 to 15 words long, plain English, summarizing the key contrast between Document A and Document B.
+6. Return valid JSON only—no Markdown fences or extra commentary.
+"""
+
+    try:
+        raw = llm.invoke(prompt)
+        parsed = parse_comparison_json(raw)
+        raw_dims = parsed.get("dimensions")
+        if not isinstance(raw_dims, dict):
+            raise ValueError("Missing 'dimensions' object in executive comparison.")
+
+        dimensions = []
+        for key, label in EXECUTIVE_DIMENSIONS:
+            entry = raw_dims.get(key)
+            if not isinstance(entry, dict):
+                entry = {}
+
+            doc_a = str(entry.get("document_a") or "").strip() or "Not stated"
+            doc_b = str(entry.get("document_b") or "").strip() or "Not stated"
+            diff = str(entry.get("difference") or "").strip()
+            status = str(entry.get("status") or "").strip().lower()
+
+            if status not in {"changed", "unchanged", "not_stated"}:
+                if doc_a.lower() == "not stated" and doc_b.lower() == "not stated":
+                    status = "not_stated"
+                elif normalize_fact(doc_a) == normalize_fact(doc_b):
+                    status = "unchanged"
+                else:
+                    status = "changed"
+
+            if not diff:
+                if status == "not_stated":
+                    diff = "Not stated in either document."
+                elif status == "unchanged":
+                    diff = "No material difference between Document A and Document B."
+                else:
+                    diff = "Details differ between Document A and Document B."
+
+            dimensions.append({
+                "key": key,
+                "label": label,
+                "document_a": doc_a,
+                "document_b": doc_b,
+                "difference": diff,
+                "status": status,
+            })
+
+        summary_words = str(parsed.get("short_summary") or "").split()
+        if len(summary_words) > 15:
+            short_summary = " ".join(summary_words[:15]).rstrip(",;:") + "."
+        elif summary_words:
+            short_summary = " ".join(summary_words)
+        else:
+            short_summary = "Document A and Document B differ across focus, timelines, and operational rules."
+
+        return {
+            "dimensions": dimensions,
+            "short_summary": short_summary,
+            "fallback": False,
+        }
+
+    except Exception as exec_error:
+        print(f"Executive comparison fallback triggered: {exec_error!r}")
+        return _build_fallback_executive_comparison(previous_facts, revised_facts)
+
+
 def run_structured_comparison(
     filename1,
     filename2,
@@ -1175,9 +1400,18 @@ def run_structured_comparison(
             previous_facts, revised_facts
         )
 
+        executive_comparison = generate_executive_comparison(
+            previous_text,
+            revised_text,
+            previous_facts,
+            revised_facts,
+            extraction_llm
+        )
+
         return {
             "previous_document": filename1,
             "revised_document": filename2,
+            "executive_comparison": executive_comparison,
             "comparison": comparison,
             "priority_and_response_time_comparison": priority_comparison,
             "source_reference_method": (

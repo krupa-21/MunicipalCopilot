@@ -1000,42 +1000,87 @@ export default function App() {
             </div>
 
             {/* Diff Results Display */}
-            {diffResult && (
+            {diffResult && (() => {
+              const docAObj = documents.find((d) => d.filename === diffResult.previous_document);
+              const docBObj = documents.find((d) => d.filename === diffResult.revised_document);
+              const docAName = docAObj?.original_filename || diffResult.previous_document;
+              const docBName = docBObj?.original_filename || diffResult.revised_document;
+              const execComp = diffResult.executive_comparison;
+
+              return (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {/* Priority / SLA Shift Matrix */}
-                {diffResult.priority_and_response_time_comparison?.comparisons && (
+                {/* Short 10-15 Word Summary Banner */}
+                {execComp?.short_summary && (
+                  <div
+                    className="card"
+                    style={{
+                      borderLeft: '4px solid var(--terracotta)',
+                      background: 'var(--bg-subtle)',
+                      padding: '16px 20px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                      <span className="badge badge-amber">10–15 Word Summary</span>
+                      <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                        {docAName} vs. {docBName}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-heading)', lineHeight: 1.45 }}>
+                      {execComp.short_summary}
+                    </div>
+                  </div>
+                )}
+
+                {/* Structured Side-by-Side Comparison */}
+                {execComp?.dimensions && (
                   <div className="card">
                     <div className="card-header">
                       <div className="card-title">
-                        <Clock size={16} color="currentColor" />
-                        Priority Categories & Response SLA Shift Analysis
+                        <GitCompare size={16} color="var(--terracotta)" />
+                        Side-by-Side Document Difference
                       </div>
+                      <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                        Direct comparison across key policy dimensions
+                      </span>
                     </div>
+
                     <div className="table-wrapper">
                       <table className="table">
                         <thead>
                           <tr>
-                            <th>Status</th>
-                            <th>Previous Category & Target</th>
-                            <th>Revised Category & Target</th>
-                            <th>Policy Analysis</th>
+                            <th style={{ width: '14%' }}>Dimension</th>
+                            <th style={{ width: '28%' }}>Document A: {docAName}</th>
+                            <th style={{ width: '28%' }}>Document B: {docBName}</th>
+                            <th style={{ width: '30%' }}>Exact Difference</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {diffResult.priority_and_response_time_comparison.comparisons.map((c, i) => (
-                            <tr key={i}>
-                              <td>
-                                <span className={`badge ${c.change_type === 'unchanged' ? 'badge-teal' : 'badge-amber'}`}>
-                                  {c.change_type.replace(/_/g, ' ')}
+                          {execComp.dimensions.map((dim) => (
+                            <tr key={dim.key}>
+                              <td style={{ fontWeight: 700, color: 'var(--text-heading)', verticalAlign: 'top' }}>
+                                <div>{dim.label}</div>
+                                <span
+                                  className={`badge ${
+                                    dim.status === 'unchanged'
+                                      ? 'badge-teal'
+                                      : dim.status === 'not_stated'
+                                      ? 'badge-blue'
+                                      : 'badge-amber'
+                                  }`}
+                                  style={{ marginTop: '6px', fontSize: '10px' }}
+                                >
+                                  {dim.status === 'not_stated'
+                                    ? 'Not Stated'
+                                    : dim.status === 'unchanged'
+                                    ? 'Same'
+                                    : 'Changed'}
                                 </span>
                               </td>
-                              <td>
-                                <strong>{c.previous_category || '—'}</strong>: {c.previous_response_target || '—'}
+                              <td style={{ verticalAlign: 'top', lineHeight: 1.55 }}>{dim.document_a}</td>
+                              <td style={{ verticalAlign: 'top', lineHeight: 1.55 }}>{dim.document_b}</td>
+                              <td style={{ verticalAlign: 'top', lineHeight: 1.55, fontWeight: 500, color: 'var(--text-heading)' }}>
+                                {dim.difference}
                               </td>
-                              <td>
-                                <strong>{c.revised_category || '—'}</strong>: {c.revised_response_target || '—'}
-                              </td>
-                              <td style={{ color: 'var(--text-muted)' }}>{c.reason}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -1044,66 +1089,127 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Categorized Changes */}
-                <div className="card">
-                  <div className="card-header">
-                    <div className="card-title">
-                      <FileCheck size={16} color="var(--heritage-green)" />
-                      Detailed Policy Clause Comparison
+                {/* Collapsible Detailed Clause & SLA Breakdown */}
+                <details className="card" style={{ padding: '16px 20px' }}>
+                  <summary
+                    style={{
+                      cursor: 'pointer',
+                      fontWeight: 700,
+                      fontSize: '13.5px',
+                      color: 'var(--text-heading)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.02em',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    <FileCheck size={16} color="var(--heritage-green)" />
+                    Detailed Clause-by-Clause & SLA Breakdown (Click to Expand)
+                  </summary>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '16px' }}>
+                    {/* Priority / SLA Shift Matrix */}
+                    {diffResult.priority_and_response_time_comparison?.comparisons && (
+                      <div>
+                        <div className="card-title" style={{ marginBottom: '10px', fontSize: '13px' }}>
+                          <Clock size={15} color="currentColor" />
+                          Priority Categories & Response SLA Shift Analysis
+                        </div>
+                        <div className="table-wrapper">
+                          <table className="table">
+                            <thead>
+                              <tr>
+                                <th>Status</th>
+                                <th>Previous Category & Target</th>
+                                <th>Revised Category & Target</th>
+                                <th>Policy Analysis</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {diffResult.priority_and_response_time_comparison.comparisons.map((c, i) => (
+                                <tr key={i}>
+                                  <td>
+                                    <span className={`badge ${c.change_type === 'unchanged' ? 'badge-teal' : 'badge-amber'}`}>
+                                      {c.change_type.replace(/_/g, ' ')}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <strong>{c.previous_category || '—'}</strong>: {c.previous_response_target || '—'}
+                                  </td>
+                                  <td>
+                                    <strong>{c.revised_category || '—'}</strong>: {c.revised_response_target || '—'}
+                                  </td>
+                                  <td style={{ color: 'var(--text-muted)' }}>{c.reason}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Categorized Changes */}
+                    <div>
+                      <div className="card-title" style={{ marginBottom: '10px', fontSize: '13px' }}>
+                        <FileCheck size={15} color="var(--heritage-green)" />
+                        Detailed Policy Clause Comparison
+                      </div>
+
+                      <div className="diff-grid">
+                        {diffResult.comparison?.fields &&
+                          Object.entries(diffResult.comparison.fields).map(([fieldName, fieldData]) => {
+                            const hasChanges =
+                              (fieldData.modified && fieldData.modified.length > 0) ||
+                              (fieldData.added && fieldData.added.length > 0) ||
+                              (fieldData.removed && fieldData.removed.length > 0);
+
+                            if (!hasChanges) return null;
+
+                            return (
+                              <div key={fieldName} className="diff-item modified">
+                                <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '8px', textTransform: 'capitalize' }}>
+                                  {fieldName.replace(/_/g, ' ')}
+                                </div>
+
+                                {fieldData.modified?.map((m, idx) => (
+                                  <div key={idx} style={{ marginBottom: '10px', fontSize: '12px' }}>
+                                    <div style={{ color: 'var(--terracotta)', fontWeight: 600 }}>• Modified Requirement:</div>
+                                    <div style={{ color: 'var(--text-dim)', textDecoration: 'line-through' }}>
+                                      Old: {m.previous}
+                                    </div>
+                                    <div style={{ color: 'var(--text-heading)', marginTop: '2px' }}>
+                                      New: {m.revised}
+                                    </div>
+                                    <div style={{ color: 'var(--text-dim)', fontStyle: 'italic', marginTop: '2px' }}>
+                                      Reason: {m.reason}
+                                    </div>
+                                  </div>
+                                ))}
+
+                                {fieldData.added?.map((a, idx) => (
+                                  <div key={idx} style={{ marginBottom: '8px', fontSize: '12px' }}>
+                                    <div style={{ color: 'var(--heritage-green)', fontWeight: 600 }}>+ Added Obligation:</div>
+                                    <div>{a.requirement || a}</div>
+                                  </div>
+                                ))}
+
+                                {fieldData.removed?.map((r, idx) => (
+                                  <div key={idx} style={{ marginBottom: '8px', fontSize: '12px' }}>
+                                    <div style={{ color: 'var(--status-danger)', fontWeight: 600 }}>- Removed Clause:</div>
+                                    <div>{r.requirement || r}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })}
+                      </div>
                     </div>
                   </div>
-
-                  <div className="diff-grid">
-                    {diffResult.comparison?.fields &&
-                      Object.entries(diffResult.comparison.fields).map(([fieldName, fieldData]) => {
-                        const hasChanges =
-                          (fieldData.modified && fieldData.modified.length > 0) ||
-                          (fieldData.added && fieldData.added.length > 0) ||
-                          (fieldData.removed && fieldData.removed.length > 0);
-
-                        if (!hasChanges) return null;
-
-                        return (
-                          <div key={fieldName} className="diff-item modified">
-                            <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '8px', textTransform: 'capitalize' }}>
-                              {fieldName.replace(/_/g, ' ')}
-                            </div>
-
-                            {fieldData.modified?.map((m, idx) => (
-                              <div key={idx} style={{ marginBottom: '10px', fontSize: '12px' }}>
-                                <div style={{ color: 'var(--terracotta)', fontWeight: 600 }}>• Modified Requirement:</div>
-                                <div style={{ color: 'var(--text-dim)', textDecoration: 'line-through' }}>
-                                  Old: {m.previous}
-                                </div>
-                                <div style={{ color: 'var(--text-heading)', marginTop: '2px' }}>
-                                  New: {m.revised}
-                                </div>
-                                <div style={{ color: 'var(--text-dim)', fontStyle: 'italic', marginTop: '2px' }}>
-                                  Reason: {m.reason}
-                                </div>
-                              </div>
-                            ))}
-
-                            {fieldData.added?.map((a, idx) => (
-                              <div key={idx} style={{ marginBottom: '8px', fontSize: '12px' }}>
-                                <div style={{ color: 'var(--heritage-green)', fontWeight: 600 }}>+ Added Obligation:</div>
-                                <div>{a.requirement || a}</div>
-                              </div>
-                            ))}
-
-                            {fieldData.removed?.map((r, idx) => (
-                              <div key={idx} style={{ marginBottom: '8px', fontSize: '12px' }}>
-                                <div style={{ color: 'var(--status-danger)', fontWeight: 600 }}>- Removed Clause:</div>
-                                <div>{r.requirement || r}</div>
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      })}
-                  </div>
-                </div>
+                </details>
               </div>
-            )}
+              );
+            })()}
           </div>
         )}
 

@@ -18,7 +18,9 @@ if errorlevel 1 (
 )
 
 echo [2/4] Starting FastAPI Backend on port 8000...
-start "AMC Copilot - Backend (Port 8000)" cmd /k "cd /d %SCRIPT_DIR%backend && set OLLAMA_KEEP_ALIVE=30m && .\venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000"
+set "PYTHON_EXE=%SCRIPT_DIR%backend\venv\Scripts\python.exe"
+if not exist "%PYTHON_EXE%" set "PYTHON_EXE=%SCRIPT_DIR%venv\Scripts\python.exe"
+start "AMC Copilot - Backend (Port 8000)" cmd /k "cd /d %SCRIPT_DIR%backend && set OLLAMA_KEEP_ALIVE=30m && %PYTHON_EXE% -m uvicorn main:app --host 127.0.0.1 --port 8000"
 
 echo [3/4] Starting React Frontend on port 5173...
 start "AMC Copilot - Frontend (Port 5173)" cmd /k "cd /d %SCRIPT_DIR%frontend && npm run dev"
