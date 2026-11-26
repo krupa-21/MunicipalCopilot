@@ -1,27 +1,45 @@
-﻿import sqlite3
+﻿
+import psycopg2
 from datetime import datetime
 
-from app.core.config import AUDIT_DB_PATH
+from app.core.config import DATABASE_URL
+
+
+def _connect():
+    if not DATABASE_URL:
+        raise RuntimeError(
+            "DATABASE_URL environment variable is not configured."
+        )
+
+    return psycopg2.connect(DATABASE_URL)
 
 
 def init_audit_db():
+    connection = _connect()
+
     try:
-        with sqlite3.connect(AUDIT_DB_PATH) as conn:
-            conn.execute("""
+        with connection.cursor() as cursor:
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS audit_logs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id SERIAL PRIMARY KEY,
                     timestamp TEXT NOT NULL,
                     user_role TEXT NOT NULL,
                     query TEXT NOT NULL,
                     answer_preview TEXT NOT NULL,
                     sources TEXT NOT NULL,
-                    response_time_ms REAL NOT NULL,
+                    response_time_ms DOUBLE PRECISION NOT NULL,
                     status TEXT NOT NULL
                 )
             """)
-            conn.commit()
-    except Exception as e:
-        print(f"Error initializing audit db: {e}")
+
+        connection.commit()
+
+    except Exception:
+        connection.rollback()
+        raise
+
+    finally:
+        connection.close()
 
 
 def log_audit(
@@ -40,55 +58,119 @@ def log_audit(
             ]
         ) if sources else "None"
 
-        with sqlite3.connect(AUDIT_DB_PATH) as conn:
-            conn.execute(
-                "INSERT INTO audit_logs (timestamp, user_role, query, answer_preview, sources, response_time_ms, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (
-                    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    user_role,
-                    query,
-                    (answer[:250] + "...") if len(answer) > 250 else answer,
-                    sources_str,
-                    round(response_time_ms, 2),
-                    status
+        connection = _connect()
+
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO audit_logs (
+                        timestamp,
+                        user_role,
+                        query,
+                        answer_preview,
+                        sources,
+                        response_time_ms,
+                        status
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        datetime.now().strftime(
+                            "%Y-%m-%d %H:%M:%S"
+                        ),
+                        user_role,
+                        query,
+                        (answer[:250] + "...") if len(answer) > 250 else answer,
+                        sources_str,
+                        round(response_time_ms, 2),
+                        status
+                    )
                 )
-            )
-            conn.commit()
+
+            connection.commit()
+
+        except Exception:
+            connection.rollback()
+            raise
+
+        finally:
+            connection.close()
+
     except Exception as e:
         print(f"Audit log failed: {e}")
 
 
-init_audit_db()
-
 def fetch_audit_logs(limit: int = 50):
-    with sqlite3.connect(AUDIT_DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT * FROM audit_logs ORDER BY id DESC LIMIT ?",
-            (limit,)
-        )
-        rows = cursor.fetchall()
+    connection = _connect()
 
-        return {
-            "total": len(rows),
-            "logs": [dict(row) for row in rows]
-        }
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT *
+                FROM audit_logs
+                ORDER BY id DESC
+                LIMIT %s
+                """,
+                (limit,)
+            )
+
+            rows = cursor.fetchall()
+            columns = [
+                description[0]
+                for description in cursor.description
+            ]
+
+            logs = [
+                dict(zip(columns, row))
+                for row in rows
+            ]
+
+            return {
+                "total": len(logs),
+                "logs": logs
+            }
+
+    finally:
+        connection.close()
 
 
 def remove_audit_log(log_id: int):
-    with sqlite3.connect(AUDIT_DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            "DELETE FROM audit_logs WHERE id = ?",
-            (log_id,)
-        )
-        conn.commit()
-        return cursor.rowcount
+    connection = _connect()
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM audit_logs WHERE id = %s",
+                (log_id,)
+            )
+
+            deleted_count = cursor.rowcount
+
+        connection.commit()
+        return deleted_count
+
+    except Exception:
+        connection.rollback()
+        raise
+
+    finally:
+        connection.close()
 
 
 def remove_all_audit_logs():
-    with sqlite3.connect(AUDIT_DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM audit_logs")
-        conn.commit()
+    connection = _connect()
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("DELETE FROM audit_logs")
+
+        connection.commit()
+
+    except Exception:
+        connection.rollback()
+        raise
+
+    finally:
+        connection.close()

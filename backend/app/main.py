@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import UPLOAD_DIR
 from app.database.audit_db import init_audit_db
+from app.database.vector_store import init_vector_db
 from app.core.resources import qa_llm
 
 from app.api.health import router as health_router
@@ -43,6 +44,7 @@ app.include_router(structured_comparison_router)
 @app.on_event("startup")
 def startup_warmup():
     init_audit_db()
+    init_vector_db()
     try:
         print("Preloading Ollama LLM with 30-minute keep-alive...")
         qa_llm.invoke("ping")
