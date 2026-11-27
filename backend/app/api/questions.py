@@ -14,7 +14,9 @@ def ask_question(
     query: str,
     department: str = None,
     document_type: str = None,
-    user_role: str = "Officer"
+    user_role: str = "Officer",
+    previous_answer: str = None,
+    previous_sources: str = None
 ):
     return answer_question(
         query=query,
@@ -24,5 +26,7 @@ def ask_question(
         collection=collection,
         embedding_model=embedding_model,
         qa_llm=qa_llm,
-        log_audit=log_audit
+        log_audit=log_audit,
+        previous_answer=previous_answer,
+        previous_sources=previous_sources
     )

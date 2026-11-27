@@ -1,7 +1,289 @@
-﻿import re
+﻿import json
+import re
 import time
 
 from fastapi import HTTPException
+
+
+_NEGATIVE_ANSWER_PATTERNS = (
+    r"\bdo(?:es)?\s+not\s+contain\s+(?:any\s+)?information\b",
+    r"\bnot\s+provided\s+in\s+(?:the\s+)?(?:given\s+|provided\s+|uploaded\s+)?(?:evidence|documents?|context)\b",
+    r"\bnot\s+mentioned\s+in\s+(?:the\s+)?(?:uploaded\s+|provided\s+|given\s+|these\s+)?(?:documents?|evidence|context)\b",
+    r"\bno\s+(?:relevant\s+)?information\s+(?:about|regarding|on|found)\b",
+    r"\bnot\s+(?:available|found|stated)\s+in\s+(?:the\s+)?(?:uploaded\s+|provided\s+|given\s+|these\s+)?(?:documents?|evidence|context)\b",
+    r"\b(?:answer\s+)?not\s+supported(?:\s+by\s+(?:the\s+)?(?:given\s+|provided\s+)?(?:evidence|documents?|context))?\b",
+    r"\bcannot\s+(?:find|determine|answer)\b.*\b(?:documents?|evidence|context)\b",
+    r"\bunable\s+to\s+find\b.*\b(?:documents?|evidence|context)\b",
+)
+
+_ANSWER_STOPWORDS = {
+    "a", "an", "and", "are", "as", "at", "be", "been", "being", "by", "can",
+    "could", "did", "do", "does", "for", "from", "get", "gets", "had", "has",
+    "have", "he", "her", "here", "his", "how", "in", "into", "is", "it",
+    "its", "may", "might", "more", "most", "must", "no", "not", "of", "on",
+    "or", "our", "per", "shall", "she", "should", "so", "such", "than",
+    "that", "the", "their", "them", "then", "there", "these", "they", "this",
+    "those", "to", "was", "we", "were", "what", "when", "where", "which",
+    "who", "will", "with", "would", "you", "your"
+}
+
+_META_SOURCE_WORDS = {
+    "a", "an", "and", "answer", "citation", "citations", "cite", "cited",
+    "did", "do", "doc", "document", "documents", "for", "from", "get",
+    "give", "in", "is", "it", "last", "me", "number", "numbers", "of",
+    "on", "or", "page", "pages", "please", "previous", "prior", "provide",
+    "reference", "references", "response", "show", "source", "sources",
+    "tell", "that", "the", "this", "to", "was", "were", "what", "where",
+    "which", "you", "your"
+}
+
+
+def _is_negative_answer(answer_text: str) -> bool:
+    """Detect answers stating the uploaded documents do not contain the requested info."""
+    lower = (answer_text or "").strip().lower()
+    if not lower:
+        return True
+    return any(re.search(pattern, lower) for pattern in _NEGATIVE_ANSWER_PATTERNS)
+
+
+def _is_followup_source_request(query: str) -> bool:
+    """Detect meta follow-up queries asking only for the source/page of a prior answer."""
+    lower = (query or "").strip().lower()
+    asks_for_source = any(
+        term in lower
+        for term in ("source", "page number", "citation", "reference", "which document")
+    )
+    if not asks_for_source:
+        return False
+
+    remaining_terms = {
+        word for word in re.findall(r"[a-z0-9]+", lower)
+        if word not in _META_SOURCE_WORDS and len(word) > 1
+    }
+    return len(remaining_terms) == 0
+
+
+def _parse_previous_sources(previous_sources: str | None) -> list[dict]:
+    """Parse serialized prior sources into a clean deduplicated list."""
+    if not previous_sources:
+        return []
+    try:
+        parsed = json.loads(previous_sources)
+    except (ValueError, TypeError):
+        return []
+    if not isinstance(parsed, list):
+        return []
+
+    cleaned = []
+    seen = set()
+    for item in parsed:
+        if not isinstance(item, dict):
+            continue
+        doc = str(item.get("document") or "").strip()
+        page = item.get("page")
+        if not doc or (doc, page) in seen:
+            continue
+        seen.add((doc, page))
+        cleaned.append({
+            "source_id": f"S{len(cleaned) + 1}",
+            "document": doc,
+            "page": page,
+            "distance": item.get("distance")
+        })
+    return cleaned
+
+
+def _strip_citation_tags(text: str) -> str:
+    """Remove [S#] citation markers and clean leftover spacing/punctuation."""
+    cleaned = re.sub(r"\s*\[[^\]]*?\bS\d+\b[^\]]*?\]", "", text or "")
+    cleaned = re.sub(r"(?:\s*,\s*)+(?=[.,;!?]|$)", "", cleaned)
+    return re.sub(r"[ \t]{2,}", " ", cleaned).strip()
+
+
+def _append_inline_tags(answer_text: str, tags: str) -> str:
+    """Insert inline citation tags cleanly before final punctuation."""
+    text = (answer_text or "").strip()
+    if not text or not tags:
+        return text
+    if text[-1] in ".!?":
+        return f"{text[:-1].rstrip()} {tags}{text[-1]}"
+    return f"{text} {tags}"
+
+
+def _match_supporting_sources(
+    answer_text: str,
+    candidate_sources: list[dict],
+    max_sources: int = 2
+) -> list[dict]:
+    """
+    Attribute an uncited grounded answer to the minimal retrieved chunk(s)
+    whose text actually evidences the answer's terms and numbers.
+    """
+    tokens = [
+        word for word in re.findall(r"[a-z0-9]+", (answer_text or "").lower())
+        if word not in _ANSWER_STOPWORDS and (len(word) > 1 or word.isdigit())
+    ]
+    answer_terms = set(tokens)
+    if not answer_terms:
+        return []
+
+    answer_numbers = {word for word in answer_terms if word.isdigit()}
+    scored = []
+
+    for src in candidate_sources:
+        chunk_text = (src.get("text") or "").lower()
+        if not chunk_text:
+            continue
+        chunk_terms = set(re.findall(r"[a-z0-9]+", chunk_text))
+        overlap = answer_terms & chunk_terms
+        num_overlap = answer_numbers & chunk_terms
+        coverage = len(overlap) / len(answer_terms)
+
+        if len(overlap) < 2 or (coverage < 0.25 and len(overlap) < 4):
+            continue
+
+        score = (len(num_overlap) * 2.5) + len(overlap) + coverage
+        scored.append((score, overlap, num_overlap, src))
+
+    if not scored:
+        return []
+
+    scored.sort(key=lambda item: item[0], reverse=True)
+
+    selected = []
+    seen_doc_pages = set()
+    covered_terms = set()
+
+    for _, overlap, num_overlap, src in scored:
+        doc_page = (src["document"], src["page"])
+        if doc_page in seen_doc_pages:
+            continue
+
+        if not selected:
+            seen_doc_pages.add(doc_page)
+            covered_terms |= overlap
+            selected.append({
+                "source_id": "S1",
+                "document": src["document"],
+                "page": src["page"],
+                "distance": src.get("distance")
+            })
+            if len(covered_terms) == len(answer_terms):
+                break
+            continue
+
+        if len(selected) >= max_sources:
+            break
+
+        new_terms = overlap - covered_terms
+        new_numbers = num_overlap - covered_terms
+        if new_numbers or len(new_terms) >= 2:
+            seen_doc_pages.add(doc_page)
+            covered_terms |= overlap
+            selected.append({
+                "source_id": f"S{len(selected) + 1}",
+                "document": src["document"],
+                "page": src["page"],
+                "distance": src.get("distance")
+            })
+
+    return selected
+
+
+def _extract_used_sources(answer_text: str, candidate_sources: list[dict]) -> tuple[str, list[dict]]:
+    """
+    Keep ONLY the sources actually cited or matched in answer_text, deduplicated
+    by (document, page) and renumbered sequentially [S1], [S2], ...
+    """
+    if _is_negative_answer(answer_text):
+        return _strip_citation_tags(answer_text), []
+
+    source_by_id = {
+        item["source_id"]: item for item in candidate_sources
+    }
+
+    # Normalize multi-ID brackets like [S1, S2] into [S1] [S2] for clean parsing.
+    def _expand_bracket(match):
+        ids = re.findall(r"\bS\d+\b", match.group(0))
+        if not ids:
+            return match.group(0)
+        valid_ids = [sid for sid in ids if sid in source_by_id]
+        return " ".join(f"[{sid}]" for sid in valid_ids)
+
+    normalized_answer = re.sub(
+        r"\[[^\]]*?\bS\d+\b[^\]]*?\]",
+        _expand_bracket,
+        answer_text or ""
+    )
+
+    cited_ids_in_order = re.findall(r"\[(S\d+)\]", normalized_answer)
+    used_sources = []
+    id_remap = {}
+    doc_page_to_new_id = {}
+
+    for old_id in cited_ids_in_order:
+        src = source_by_id.get(old_id)
+        if not src:
+            continue
+        doc_page = (src["document"], src["page"])
+        if doc_page not in doc_page_to_new_id:
+            new_id = f"S{len(used_sources) + 1}"
+            doc_page_to_new_id[doc_page] = new_id
+            used_sources.append({
+                "source_id": new_id,
+                "document": src["document"],
+                "page": src["page"],
+                "distance": src.get("distance")
+            })
+        id_remap[old_id] = doc_page_to_new_id[doc_page]
+
+    if used_sources:
+        renumbered_answer = re.sub(
+            r"\[(S\d+)\]",
+            lambda m: f"[{id_remap[m.group(1)]}]" if m.group(1) in id_remap else "",
+            normalized_answer
+        )
+        # Collapse duplicate adjacent tags such as "[S1] [S1]" from merged chunks.
+        renumbered_answer = re.sub(r"(\[S\d+\])(?:\s*\1)+", r"\1", renumbered_answer)
+        renumbered_answer = re.sub(r"[ \t]{2,}", " ", renumbered_answer).strip()
+        return renumbered_answer, used_sources
+
+    # Fallback: check if the answer explicitly named a retrieved document and page.
+    answer_lower = normalized_answer.lower()
+    matched_sources = []
+    seen_doc_pages = set()
+    for src in candidate_sources:
+        doc_name = src["document"]
+        page = src["page"]
+        doc_page = (doc_name, page)
+        if doc_page in seen_doc_pages:
+            continue
+        doc_mentioned = doc_name.lower() in answer_lower
+        page_mentioned = (
+            page is not None
+            and re.search(rf"\bpage\s*:?\s*{re.escape(str(page))}\b", answer_lower) is not None
+        )
+        if doc_mentioned and (page_mentioned or page is None):
+            seen_doc_pages.add(doc_page)
+            matched_sources.append({
+                "source_id": f"S{len(matched_sources) + 1}",
+                "document": doc_name,
+                "page": page,
+                "distance": src.get("distance")
+            })
+
+    if matched_sources:
+        tags = " ".join(f"[{s['source_id']}]" for s in matched_sources)
+        return _append_inline_tags(normalized_answer, tags), matched_sources
+
+    # Content-evidence attribution fallback when the LLM answered accurately
+    # from a retrieved chunk but omitted [S#] markers.
+    evidence_sources = _match_supporting_sources(normalized_answer, candidate_sources)
+    if evidence_sources:
+        tags = " ".join(f"[{s['source_id']}]" for s in evidence_sources)
+        return _append_inline_tags(normalized_answer, tags), evidence_sources
+
+    return normalized_answer.strip(), []
 
 
 def answer_question(
@@ -12,7 +294,9 @@ def answer_question(
     collection,
     embedding_model,
     qa_llm,
-    log_audit
+    log_audit,
+    previous_answer=None,
+    previous_sources=None
 ):
     if collection.count() == 0:
         raise HTTPException(
@@ -21,6 +305,38 @@ def answer_question(
         )
 
     start_ask_time = time.time()
+
+    # Handle follow-up source requests without running blind retrieval on meta words.
+    if _is_followup_source_request(query):
+        prior_sources = _parse_previous_sources(previous_sources)
+        if prior_sources and not _is_negative_answer(previous_answer or ""):
+            citations_text = "\n".join(
+                f"[{s['source_id']}] {s['document']} (Page {s['page']})"
+                for s in prior_sources
+            )
+            answer_text = f"The supporting source(s) for the previous answer:\n{citations_text}"
+            final_sources = prior_sources
+        elif previous_answer and _is_negative_answer(previous_answer):
+            answer_text = (
+                "There is no supporting source document or page number because the "
+                "previous response found no relevant information in the uploaded documents."
+            )
+            final_sources = []
+        else:
+            answer_text = (
+                "No prior grounded answer with supporting sources is available to cite. "
+                "Please ask a specific question about the uploaded documents."
+            )
+            final_sources = []
+
+        elapsed_ms = (time.time() - start_ask_time) * 1000
+        log_audit(user_role, query, answer_text, final_sources, elapsed_ms)
+        return {
+            "question": query,
+            "answer": answer_text,
+            "sources": final_sources,
+            "response_time_ms": round(elapsed_ms, 2)
+        }
 
     query_embedding = embedding_model.encode(query).tolist()
 
@@ -164,26 +480,36 @@ def answer_question(
 
     candidates.sort(key=lambda item: item["score"], reverse=True)
 
-    selected = candidates[:10]
+    # Keep only meaningful candidates (avoid padding with unrelated chunks).
+    strong_candidates = [
+        item for item in candidates
+        if item["score"] >= 1.0 or (item["distance"] is not None and item["distance"] <= 1.25)
+    ]
+    selected = (strong_candidates or candidates[:3])[:8]
 
     if not selected:
+        elapsed_ms = (time.time() - start_ask_time) * 1000
+        no_match_answer = "No relevant document passages were found."
+        log_audit(user_role, query, no_match_answer, [], elapsed_ms)
         return {
             "question": query,
-            "answer": "No relevant document passages were found.",
-            "sources": []
+            "answer": no_match_answer,
+            "sources": [],
+            "response_time_ms": round(elapsed_ms, 2)
         }
 
-    sources = []
+    candidate_sources = []
     context_parts = []
 
     for index, item in enumerate(selected, start=1):
         source_id = f"S{index}"
 
-        sources.append({
+        candidate_sources.append({
             "source_id": source_id,
             "document": item["filename"],
             "page": item["page"],
-            "distance": item["distance"]
+            "distance": item["distance"],
+            "text": item["text"]
         })
 
         context_parts.append(
@@ -306,11 +632,13 @@ Answer using only the retrieved evidence below.
 Do not invent facts or citations.
 
 Rules:
-- Cite factual claims using the supplied source IDs.
+- Answer the question in clear, complete sentences (never reply with only a bare [S#] tag).
+- Cite ONLY the exact [S#] source ID(s) directly supporting each factual claim.
+- Keep citations minimal (typically 1 to 3 sources). Never dump or list unused source IDs.
 - Distinguish response targets from escalation deadlines.
 - Treat different document versions separately.
 - Do not assume High and Critical mean the same thing.
-- If the answer is not supported, say so.
+- If the answer is not supported by the evidence, state that clearly and do NOT include any [S#] citations.
 
 Evidence:
 {context}
@@ -318,12 +646,12 @@ Evidence:
 Question:
 {query}
 
-Answer with inline source citations:
+Answer using minimal, verified inline source citations:
 """
 
     try:
         response = qa_llm.invoke(prompt)
-        answer_text = getattr(
+        raw_answer_text = getattr(
             response, "content", str(response)
         ).strip()
     except Exception as e:
@@ -332,7 +660,7 @@ Answer with inline source citations:
             user_role,
             query,
             f"ERROR: {str(e)}",
-            sources,
+            [],
             elapsed_ms,
             status="FAILED"
         )
@@ -344,12 +672,14 @@ Answer with inline source citations:
             )
         )
 
+    answer_text, final_sources = _extract_used_sources(raw_answer_text, candidate_sources)
+
     elapsed_ms = (time.time() - start_ask_time) * 1000
-    log_audit(user_role, query, answer_text, sources, elapsed_ms)
+    log_audit(user_role, query, answer_text, final_sources, elapsed_ms)
 
     return {
         "question": query,
         "answer": answer_text,
-        "sources": sources,
+        "sources": final_sources,
         "response_time_ms": round(elapsed_ms, 2)
     }

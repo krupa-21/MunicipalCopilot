@@ -211,6 +211,14 @@ export default function App() {
         params.append('document_type', selectedDocType);
       }
 
+      const lastAssistantMsg = [...messages]
+        .reverse()
+        .find((m) => m.role === 'assistant' && m.id !== 1);
+      if (lastAssistantMsg) {
+        params.append('previous_answer', lastAssistantMsg.text || '');
+        params.append('previous_sources', JSON.stringify(lastAssistantMsg.sources || []));
+      }
+
       const res = await fetch(`${API_BASE}/ask?${params.toString()}`);
       if (!res.ok) {
         throw new Error(`Server returned ${res.status}`);
@@ -464,8 +472,11 @@ export default function App() {
         {parts.map((part, index) => {
           const match = part.match(/\[S(\d+)\]/);
           if (match) {
+            const sourceId = `S${match[1]}`;
             const sourceIndex = parseInt(match[1], 10) - 1;
-            const source = sources && sources[sourceIndex];
+            const source =
+              (sources && sources.find((s) => s.source_id === sourceId)) ||
+              (sources && sources[sourceIndex]);
             return (
               <button
                 key={index}
